@@ -21,10 +21,10 @@ extern "C"
 
 typedef enum
 {
-  BLEND_SOLID,
-  BLEND_ALPHA,
-  BLEND_ADD,
-  BLEND_MUL
+  B_SOLID,
+  B_ALPHA,
+  B_ADD,
+  B_MUL
 } lblend_t;
 
 void lgfx_setup2d(int width, int height);
@@ -154,7 +154,7 @@ void lgfx_setup2d(int width, int height)
   lgfx_setviewport(0, 0, width, height);
   lgfx_setorigin(0, 0);
   lgfx_setresolution(width, height);
-  lgfx_setblend(BLEND_ALPHA);
+  lgfx_setblend(B_ALPHA);
   lgfx_setcolor(1, 1, 1, 1);
   lgfx_setusevertexcolor(0);
   lgfx_setculling(0);
@@ -183,7 +183,7 @@ void lgfx_setup3d(int width, int height)
   glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
   lgfx_setviewport(0, 0, width, height);
   lgfx_setorigin(0, 0);
-  lgfx_setblend(BLEND_SOLID);
+  lgfx_setblend(B_SOLID);
   lgfx_setcolor(1, 1, 1, 1);
   lgfx_setusevertexcolor(0);
   lgfx_setculling(1);
@@ -230,16 +230,16 @@ void lgfx_setblend(lblend_t mode)
 {
   switch (mode)
   {
-  case BLEND_SOLID:
+  case B_SOLID:
     glBlendFunc(GL_ONE, GL_ZERO);
     break;
-  case BLEND_ALPHA:
+  case B_ALPHA:
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     break;
-  case BLEND_ADD:
+  case B_ADD:
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     break;
-  case BLEND_MUL:
+  case B_MUL:
     glBlendFunc(GL_DST_COLOR, GL_ZERO);
     break;
   }
