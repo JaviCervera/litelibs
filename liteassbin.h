@@ -134,6 +134,7 @@ typedef struct
 } lassbin_scene_t;
 
 lassbin_scene_t* lassbin_load(const char* filename);
+lassbin_scene_t* lassbin_loadmem(const char* mem);
 void lassbin_free(lassbin_scene_t* scene);
 const char* lassbin_matname(const lassbin_material_t* material);
 int lassbin_matnumtextures(const lassbin_material_t* material, int type);
@@ -204,35 +205,66 @@ unsigned short* lassbin_getindices(const lassbin_mesh_t* mesh, int* num_indices)
 extern "C" {
 #endif
 
-static lassbin_scene_t* _lassbin_load_scene(FILE* fp);
-static int _lassbin_load_node(FILE* fp);
-static int _lassbin_load_mesh(FILE* fp, lassbin_mesh_t* mesh);
-static int _lassbin_load_material(FILE* fp, lassbin_material_t* material);
-static int _lassbin_load_matproperty(FILE* fp, lassbin_matproperty_t* prop);
-static int _lassbin_load_texture(FILE* fp, lassbin_texture_t* texture);
-static void _lassbin_load_string(FILE* fp, char* out, int len);
-static void _lassbin_skip(FILE* fp);
+typedef struct
+{
+  const char* data;
+  size_t offset;
+} lassbin_stream_t;
+
+
+static lassbin_scene_t* _lassbin_load_scene(lassbin_stream_t* stream);
+static int _lassbin_load_node(lassbin_stream_t* stream);
+static int _lassbin_load_mesh(lassbin_stream_t* stream, lassbin_mesh_t* mesh);
+static int _lassbin_load_material(lassbin_stream_t* stream, lassbin_material_t* material);
+static int _lassbin_load_matproperty(lassbin_stream_t* stream, lassbin_matproperty_t* prop);
+static int _lassbin_load_texture(lassbin_stream_t* stream, lassbin_texture_t* texture);
+static void _lassbin_load_string(lassbin_stream_t* stream, char* out, int len);
+static void _lassbin_skip(lassbin_stream_t* stream);
+static void _lassbin_init_stream(lassbin_stream_t* stream, const char* data);
+static void _lassbin_read_stream(lassbin_stream_t* stream, void* buffer, size_t size);
 
 lassbin_scene_t* lassbin_load(const char* filename)
 {
-  FILE* fp;
+  FILE *fhandle;
+  long size;
+  char* buffer;
+  lassbin_scene_t* scene;
+
+  /* read file */
+  fhandle = fopen(filename, "rb");
+  if (!fhandle) return 0;
+  fseek(fhandle, 0, SEEK_END);
+  size = ftell(fhandle);
+  fseek(fhandle, 0, SEEK_SET);
+  buffer = (char*)malloc(size);
+  fread(buffer, size, 1, fhandle);
+  fclose(fhandle);
+
+  /* load scene */
+  scene = lassbin_loadmem(buffer);
+  free(buffer);
+
+  return scene;
+}
+
+lassbin_scene_t* lassbin_loadmem(const char* mem)
+{
+  lassbin_stream_t stream;
   lassbin_header_t header;
   lassbin_scene_t* scene;
 
-  /* open file for reading */
-  fp = fopen(filename, "rb");
-  if (!fp) return 0;
+  /* init stream */
+  _lassbin_init_stream(&stream, mem);
 
   /* read header and compare tag */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(&stream, &header, sizeof(header));
   if (strncmp(header.magic_id, "ASSIMP.binary", 13) != 0 || header.dump_format != 0 || header.compressed != 0)
   {
-    fclose(fp);
     return 0;
   }
 
   /* read scene */
-  return _lassbin_load_scene(fp);
+  return _lassbin_load_scene(&stream);
 }
 
 void lassbin_free(lassbin_scene_t* scene)
@@ -497,23 +529,23 @@ static void _lassbin_printid(int magic_id)
 }
 */
 
-static lassbin_scene_t* _lassbin_load_scene(FILE* fp)
+static lassbin_scene_t* _lassbin_load_scene(lassbin_stream_t* stream)
 {
   lassbin_chunk_header_t header;
   lassbin_scene_t* scene;
   int i;
 
   /* read header */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(stream, &header, sizeof(header));
   if (header.magic_id != LASSBIN_CHUNK_AISCENE) return 0;
 
   /* read scene */
   scene = (lassbin_scene_t*)calloc(1, sizeof(lassbin_scene_t));
-  fread(scene, 1, LASSBIN_SCENE_FIXED_SIZE, fp);
+  _lassbin_read_stream(stream, scene, LASSBIN_SCENE_FIXED_SIZE);
 
   /* skip root node */
-  _lassbin_skip(fp);
-  /*if (!_lassbin_load_node(fp))
+  _lassbin_skip(stream);
+  /*if (!_lassbin_load_node(stream))
   {
     lassbin_free(scene);
     return 0;
@@ -523,7 +555,7 @@ static lassbin_scene_t* _lassbin_load_scene(FILE* fp)
   scene->meshes = (lassbin_mesh_t*)calloc(scene->num_meshes, sizeof(lassbin_mesh_t));
   for (i = 0; i < scene->num_meshes; ++i)
   {
-    if (!_lassbin_load_mesh(fp, &scene->meshes[i]))
+    if (!_lassbin_load_mesh(stream, &scene->meshes[i]))
     {
       lassbin_free(scene);
       return 0;
@@ -534,7 +566,7 @@ static lassbin_scene_t* _lassbin_load_scene(FILE* fp)
   scene->materials = (lassbin_material_t*)calloc(scene->num_materials, sizeof(lassbin_material_t));
   for (i = 0; i < scene->num_materials; ++i)
   {
-    if (!_lassbin_load_material(fp, &scene->materials[i]))
+    if (!_lassbin_load_material(stream, &scene->materials[i]))
     {
       lassbin_free(scene);
       return 0;
@@ -544,14 +576,14 @@ static lassbin_scene_t* _lassbin_load_scene(FILE* fp)
   /* skip animations */
   for (i = 0; i < scene->num_animations; ++i)
   {
-    _lassbin_skip(fp);
+    _lassbin_skip(stream);
   }
 
   /* load textures */
   scene->textures = (lassbin_texture_t*)calloc(scene->num_textures, sizeof(lassbin_texture_t));
   for (i = 0; i < scene->num_textures; ++i)
   {
-    if (!_lassbin_load_texture(fp, &scene->textures[i]))
+    if (!_lassbin_load_texture(stream, &scene->textures[i]))
     {
       lassbin_free(scene);
       return 0;
@@ -567,63 +599,63 @@ static lassbin_scene_t* _lassbin_load_scene(FILE* fp)
   return scene;
 }
 
-static int _lassbin_load_node(FILE* fp)
+static int _lassbin_load_node(lassbin_stream_t* stream)
 {
   lassbin_chunk_header_t header;
   lassbin_node_t node;
-  long end;
+  size_t end;
   int i;
 
   /* read header */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(stream, &header, sizeof(header));
   if (header.magic_id != LASSBIN_CHUNK_AINODE) return 0;
 
   /* get end position of chunk, to skip metadata if present at end */
-  end = ftell(fp) + header.length;
+  end = stream->offset + header.length;
 
   /* read node */
   memset(&node, 0, sizeof(lassbin_node_t));
-  _lassbin_load_string(fp, node.name, sizeof(node.name));
-  fread(&node.transform, 1, LASSBIN_NODE_FIXED_SIZE, fp);
+  _lassbin_load_string(stream, node.name, sizeof(node.name));
+  _lassbin_read_stream(stream, &node.transform, LASSBIN_NODE_FIXED_SIZE);
   node.mesh_indices = (int*)malloc(node.num_meshes * sizeof(int));
 
   /* load mesh indices */
-  fread(node.mesh_indices, node.num_meshes, sizeof(int), fp);
+  _lassbin_read_stream(stream, node.mesh_indices, node.num_meshes * sizeof(int));
 
   /* load children */
-  for (i = 0; i < node.num_children; ++i) _lassbin_load_node(fp);
+  for (i = 0; i < node.num_children; ++i) _lassbin_load_node(stream);
 
   /* skip metadata (if exported with "export" instead of "dump") */
-  fseek(fp, end, SEEK_SET);
+  stream->offset = end;
 
   return 1;
 }
 
-static int _lassbin_load_mesh(FILE* fp, lassbin_mesh_t* mesh)
+static int _lassbin_load_mesh(lassbin_stream_t* stream, lassbin_mesh_t* mesh)
 {
   lassbin_chunk_header_t header;
   int i;
 
   /* read header */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(stream, &header, sizeof(header));
   if (header.magic_id != LASSBIN_CHUNK_AIMESH) return 0;
 
   /* read mesh */
   memset(mesh, 0, sizeof(lassbin_mesh_t));
-  fread(mesh, 1, LASSBIN_MESH_FIXED_SIZE, fp);
+  _lassbin_read_stream(stream, mesh, LASSBIN_MESH_FIXED_SIZE);
 
   /* read positions */
   if (mesh->components & LASSBIN_MESH_HAS_POSITIONS)
   {
     mesh->positions = (float*)malloc(mesh->num_vertices * 3 * sizeof(float));
-    fread(mesh->positions, mesh->num_vertices * 3, sizeof(float), fp);
+    _lassbin_read_stream(stream, mesh->positions, mesh->num_vertices * 3 * sizeof(float));
   }
 
   /* read normals */
   if (mesh->components & LASSBIN_MESH_HAS_POSITIONS)
   {
     mesh->normals = (float*)malloc(mesh->num_vertices * 3 * sizeof(float));
-    fread(mesh->normals, mesh->num_vertices * 3, sizeof(float), fp);
+    _lassbin_read_stream(stream, mesh->normals, mesh->num_vertices * 3 * sizeof(float));
   }
 
   /* read tangents and bitangents */
@@ -631,8 +663,8 @@ static int _lassbin_load_mesh(FILE* fp, lassbin_mesh_t* mesh)
   {
     mesh->tangents = (float*)malloc(mesh->num_vertices * 3 * sizeof(float));
     mesh->bitangents = (float*)malloc(mesh->num_vertices * 3 * sizeof(float));
-    fread(mesh->tangents, mesh->num_vertices * 3, sizeof(float), fp);
-    fread(mesh->bitangents, mesh->num_vertices * 3, sizeof(float), fp);
+    _lassbin_read_stream(stream, mesh->tangents, mesh->num_vertices * 3 * sizeof(float));
+    _lassbin_read_stream(stream, mesh->bitangents, mesh->num_vertices * 3 * sizeof(float));
   }
 
   /* read color sets */
@@ -641,7 +673,7 @@ static int _lassbin_load_mesh(FILE* fp, lassbin_mesh_t* mesh)
     if (mesh->components & LASSBIN_MESH_HAS_COLOR(i))
     {
       mesh->colors[i] = (float*)malloc(mesh->num_vertices * 4 * sizeof(float));
-      fread(mesh->colors[i], mesh->num_vertices * 4, sizeof(float), fp);
+      _lassbin_read_stream(stream, mesh->colors[i], mesh->num_vertices * 4 * sizeof(float));
     }
   }
 
@@ -651,8 +683,8 @@ static int _lassbin_load_mesh(FILE* fp, lassbin_mesh_t* mesh)
     if (mesh->components & LASSBIN_MESH_HAS_TEXCOORD(i))
     {
       mesh->texcoords[i] = (float*)malloc(mesh->num_vertices * 4 * sizeof(float));
-      fread(&mesh->numuvs[i], 1, sizeof(int), fp);
-      fread(mesh->texcoords[i], mesh->num_vertices * 3, sizeof(float), fp);
+      _lassbin_read_stream(stream, &mesh->numuvs[i], sizeof(int));
+      _lassbin_read_stream(stream, mesh->texcoords[i], mesh->num_vertices * 3 * sizeof(float));
     }
   }
 
@@ -661,38 +693,38 @@ static int _lassbin_load_mesh(FILE* fp, lassbin_mesh_t* mesh)
   for (i = 0; i < mesh->num_faces; ++i)
   {
     int index_size = (mesh->num_vertices < (1u<<16)) ? sizeof(unsigned short) : sizeof(unsigned int);
-    fread(&mesh->faces[i].num_indices, 1, sizeof(unsigned short), fp);
+    _lassbin_read_stream(stream, &mesh->faces[i].num_indices, sizeof(unsigned short));
     mesh->faces[i].indices = malloc(mesh->faces[i].num_indices * index_size);
-    fread(mesh->faces[i].indices, mesh->faces[i].num_indices, index_size, fp);
+    _lassbin_read_stream(stream, mesh->faces[i].indices, mesh->faces[i].num_indices * index_size);
   }
 
   /* skip bones (unsupported yet) */
   for (i = 0; i < mesh->num_bones; ++i)
   {
-    _lassbin_skip(fp);
+    _lassbin_skip(stream);
   }
 
   return 1;
 }
 
-static int _lassbin_load_material(FILE* fp, lassbin_material_t* material)
+static int _lassbin_load_material(lassbin_stream_t* stream, lassbin_material_t* material)
 {
   lassbin_chunk_header_t header;
   int i;
 
   /* read header */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(stream, &header, sizeof(header));
   if (header.magic_id != LASSBIN_CHUNK_AIMATERIAL) return 0;
 
   /* read material */
   memset(material, 0, sizeof(lassbin_material_t));
-  fread(material, 1, LASSBIN_MATERIAL_FIXED_SIZE, fp);
+  _lassbin_read_stream(stream, material, LASSBIN_MATERIAL_FIXED_SIZE);
 
   /* read properties */
   material->properties = (lassbin_matproperty_t*)calloc(material->num_properties, sizeof(lassbin_matproperty_t));
   for (i = 0; i < material->num_properties; ++i)
   {
-    if (!_lassbin_load_matproperty(fp, &material->properties[i]))
+    if (!_lassbin_load_matproperty(stream, &material->properties[i]))
     {
       return 0;
     }
@@ -701,54 +733,54 @@ static int _lassbin_load_material(FILE* fp, lassbin_material_t* material)
   return 1;
 }
 
-static int _lassbin_load_matproperty(FILE* fp, lassbin_matproperty_t* prop)
+static int _lassbin_load_matproperty(lassbin_stream_t* stream, lassbin_matproperty_t* prop)
 {
   lassbin_chunk_header_t header;
 
   /* read header */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(stream, &header, sizeof(header));
   if (header.magic_id != LASSBIN_CHUNK_AIMATERIALPROPERTY) return 0;
 
   /* read data */
-  _lassbin_load_string(fp, prop->key, sizeof(prop->key));
-  fread(&prop->semantic, 1, LASSBIN_MATPROPERTY_FIXED_SIZE, fp);
+  _lassbin_load_string(stream, prop->key, sizeof(prop->key));
+  _lassbin_read_stream(stream, &prop->semantic, LASSBIN_MATPROPERTY_FIXED_SIZE);
   prop->data = (char*)malloc(prop->data_length);
-  fread(prop->data, 1, prop->data_length, fp);
+  _lassbin_read_stream(stream, prop->data, prop->data_length);
 
   return 1;
 }
 
-static int _lassbin_load_texture(FILE* fp, lassbin_texture_t* texture)
+static int _lassbin_load_texture(lassbin_stream_t* stream, lassbin_texture_t* texture)
 {
   lassbin_chunk_header_t header;
   int i;
 
   /* read header */
-  fread(&header, 1, sizeof(header), fp);
+  _lassbin_read_stream(stream, &header, sizeof(header));
   if (header.magic_id != LASSBIN_CHUNK_AITEXTURE) return 0;
 
   /* read texture */
   memset(texture, 0, sizeof(lassbin_texture_t));
-  fread(texture, 1, LASSBIN_TEXTURE_FIXED_SIZE, fp);
+  _lassbin_read_stream(stream, texture, LASSBIN_TEXTURE_FIXED_SIZE);
 
   /* read data */
   texture->data = (unsigned char*)malloc(lassbin_texturesize(texture));
-  fread(texture->data, lassbin_texturesize(texture), sizeof(unsigned char), fp);
+  _lassbin_read_stream(stream, texture->data, lassbin_texturesize(texture) * sizeof(unsigned char));
 
   return 1;
 }
 
 
 
-static void _lassbin_load_string(FILE* fp, char* out, int len)
+static void _lassbin_load_string(lassbin_stream_t* stream, char* out, int len)
 {
   char* str;
   int length;
-  fread(&length, 1, sizeof(length), fp);
+  _lassbin_read_stream(stream, &length, sizeof(length));
   if (length > 0)
   {
     str = (char*)malloc(length);
-    fread(str, 1, length, fp);
+    _lassbin_read_stream(stream, str, length);
     strncpy(out, str, length < len ? length : len);
     out[len-1] = 0;
     free(str);
@@ -759,11 +791,23 @@ static void _lassbin_load_string(FILE* fp, char* out, int len)
   }
 }
 
-static void _lassbin_skip(FILE* fp)
+static void _lassbin_skip(lassbin_stream_t* stream)
 {
   lassbin_chunk_header_t header;
-  fread(&header, 1, sizeof(header), fp);
-  fseek(fp, header.length, SEEK_CUR);
+  _lassbin_read_stream(stream, &header, sizeof(header));
+  stream->offset += header.length;
+}
+
+static void _lassbin_init_stream(lassbin_stream_t* stream, const char* data)
+{
+  stream->data = data;
+  stream->offset = 0;
+}
+
+static void _lassbin_read_stream(lassbin_stream_t* stream, void* buffer, size_t size)
+{
+  memcpy(buffer, stream->data + stream->offset, size);
+  stream->offset += size;
 }
 
 #ifdef LITE_ASSBIN_USE_GFX

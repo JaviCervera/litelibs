@@ -91,6 +91,7 @@ typedef struct {
 } lmd2_model_t;
 
 lmd2_model_t* lmd2_load(const char* filename);
+lmd2_model_t* lmd2_loadmem(const char* mem);
 void lmd2_free(lmd2_model_t* mdl);
 
 #ifdef LITE_MD2_USE_GFX
@@ -289,23 +290,43 @@ float lmd2_normal_table[][3] = {
 
 lmd2_model_t* lmd2_load(const char* filename)
 {
+  FILE *fhandle;
+  long size;
+  char* buffer;
   lmd2_model_t* mdl;
-  FILE *fp;
-  int i;
 
-  fp = fopen(filename, "rb");
-  if (!fp) return 0;
+  /* read file */
+  fhandle = fopen(filename, "rb");
+  if (!fhandle) return 0;
+  fseek(fhandle, 0, SEEK_END);
+  size = ftell(fhandle);
+  fseek(fhandle, 0, SEEK_SET);
+  buffer = (char*)malloc(size);
+  fread(buffer, size, 1, fhandle);
+  fclose(fhandle);
+
+  /* load md2 */
+  mdl = lmd2_loadmem(buffer);
+  free(buffer);
+
+  return mdl;
+}
+
+lmd2_model_t* lmd2_loadmem(const char* mem)
+{
+  lmd2_model_t* mdl;
+  int offset;
+  int i;
 
   /* create model */
   mdl = (lmd2_model_t*) malloc(sizeof(lmd2_model_t));
 
   /* read header */
-  fread(&mdl->header, 1, sizeof(lmd2_header_t), fp);
+  memcpy(&mdl->header, mem, sizeof(lmd2_header_t));
 
   if ((mdl->header.ident != 844121161 ) || (mdl->header.version != 8))
   {
     free(mdl);
-    fclose(fp);
     return 0;
   }
 
@@ -317,32 +338,38 @@ lmd2_model_t* lmd2_load(const char* filename)
   mdl->glcmds = (int*) malloc(sizeof(int) * mdl->header.num_glcmds);
 
   /* read model data */
-  fseek(fp, mdl->header.offset_skins, SEEK_SET);
-  fread(mdl->skins, sizeof(lmd2_skin_t), mdl->header.num_skins, fp);
-  fseek(fp, mdl->header.offset_st, SEEK_SET);
-  fread(mdl->texcoords, sizeof(lmd2_texcoord_t), mdl->header.num_st, fp);
-  fseek(fp, mdl->header.offset_tris, SEEK_SET);
-  fread(mdl->triangles, sizeof(lmd2_triangle_t), mdl->header.num_tris, fp);
-  fseek(fp, mdl->header.offset_glcmds, SEEK_SET);
-  fread(mdl->glcmds, sizeof(int), mdl->header.num_glcmds, fp);
+  memcpy(mdl->skins, mem + mdl->header.offset_skins, sizeof(lmd2_skin_t) * mdl->header.num_skins);
+  memcpy(mdl->texcoords, mem + mdl->header.offset_st, sizeof(lmd2_texcoord_t) * mdl->header.num_st);
+  memcpy(mdl->triangles, mem + mdl->header.offset_tris, sizeof(lmd2_triangle_t) * mdl->header.num_tris);
+  memcpy(mdl->glcmds, mem + mdl->header.offset_glcmds, sizeof(int) * mdl->header.num_glcmds);
 
   /* read frames */
-  fseek(fp, mdl->header.offset_frames, SEEK_SET);
+  offset = mdl->header.offset_frames;
   for (i = 0; i < mdl->header.num_frames; ++i)
   {
+    int size = 0;
+
     /* memory allocation for vertices of this frame */
     mdl->frames[i].verts = (lmd2_vertex_t*) malloc(sizeof(lmd2_vertex_t) * mdl->header.num_vertices);
 
     /* read frame data */
-    fread(mdl->frames[i].scale, sizeof(float), 3, fp);
-    fread(mdl->frames[i].translate, sizeof(float), 3, fp);
-    fread(mdl->frames[i].name, sizeof(char), 16, fp);
-    fread(mdl->frames[i].verts, sizeof(lmd2_vertex_t), mdl->header.num_vertices, fp);
+    size = sizeof(float) * 3;
+    memcpy(mdl->frames[i].scale, mem + offset, size);
+    offset += size;
+    memcpy(mdl->frames[i].translate, mem + offset, size);
+    offset += size;
+    size = sizeof(char) * 16;
+    memcpy(mdl->frames[i].name, mem + offset, size);
+    offset += size;
+    size = sizeof(lmd2_vertex_t) * mdl->header.num_vertices;
+    memcpy(mdl->frames[i].verts, mem + offset, size);
+    offset += size;
   }
 
-  fclose (fp);
   return mdl;
 }
+
+
 
 void lmd2_free(lmd2_model_t* mdl)
 {
