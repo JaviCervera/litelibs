@@ -824,8 +824,10 @@ lvert_t* lassbin_getvertices(const lassbin_mesh_t* mesh)
   {
     float x = 0, y = 0, z = 0;
     float nx = 0, ny = 0, nz = -1;
-    float tu = 0, tv = 0;
+    float tu[2] = {0, 0};
+    float tv[2] = {0, 0};
     float r = 1, g = 1, b = 1, a = 1;
+    int current_uv = 0;
 
     if (mesh->components & LASSBIN_MESH_HAS_POSITIONS)
     {
@@ -857,13 +859,16 @@ lvert_t* lassbin_getvertices(const lassbin_mesh_t* mesh)
     {
       if (mesh->components & LASSBIN_MESH_HAS_TEXCOORD(i))
       {
-        tu = mesh->texcoords[i][v*3];
-        tv = mesh->texcoords[i][v*3+1];
-        break;
+        tu[current_uv] = mesh->texcoords[i][v*3];
+        tv[current_uv] = mesh->texcoords[i][v*3+1];
+        ++current_uv;
+        if (current_uv == 2) break;
       }
     }
 
-    verts[v] = lvert(x, y, z, nx, ny, nz, tu, tv, r, g, b, a);
+    verts[v] = lvert(x, y, z, nx, ny, nz, tu[0], tv[0], r, g, b, a);
+    verts[v].tex2[0] = tu[1];
+    verts[v].tex2[1] = tv[1];
   }
 
   return verts;

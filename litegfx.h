@@ -27,6 +27,7 @@ typedef enum
   B_MUL
 } lblend_t;
 
+void lgfx_init();
 void lgfx_setup2d(int width, int height);
 void lgfx_setup3d(int width, int height);
 void lgfx_setviewport(int x, int y, int width, int height);
@@ -52,34 +53,44 @@ void lgfx_drawpoint(float x, float y);
 void lgfx_drawline(float x0, float y0, float x1, float y1);
 void lgfx_drawrect(float x, float y, float width, float height);
 void lgfx_drawoval(float x, float y, float width, float height);
+int lgfx_multitexture_supported();
+int lgfx_mipmapping_supported();
 
 /* texture */
+
+typedef enum
+{
+  F_NONE,
+  F_LINEAR,
+  F_MIPMAP
+} ltexfilter_t;
 
 typedef struct
 {
   int glid;
   int width;
   int height;
+  int filter;
 } ltex_t;
 
-ltex_t* ltex_alloc(int width, int height, int filtering);
+ltex_t* ltex_alloc(int width, int height, int filter);
 void ltex_free(ltex_t* tex);
 void ltex_setpixels(const ltex_t* tex, const unsigned char* pixels);
 void ltex_getpixels(const ltex_t* tex, unsigned char* out_pixels);
 void ltex_draw(const ltex_t* tex, float x, float y);
 void ltex_drawrot(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty);
 void ltex_drawrotsized(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty, float width, float height, float u0, float v0, float u1, float v1);
-void ltex_bindcolor(const ltex_t* tex);
+void ltex_bind(const ltex_t* tex, const ltex_t* lightmap, int use_envlights);
 
 /* vertex */
 
 typedef enum
 {
-  MODE_POINTS,
-  MODE_LINES,
-  MODE_TRIANGLES,
-  MODE_TRIANGLE_STRIP,
-  MODE_TRIANGLE_FAN
+  R_POINTS,
+  R_LINES,
+  R_TRIANGLES,
+  R_TRIANGLE_STRIP,
+  R_TRIANGLE_FAN
 } lrendermode_t;
 
 typedef struct
@@ -121,11 +132,9 @@ void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, u
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#endif
-#include <GL/gl.h>
-#ifdef _WIN32
 #include <GL/glext.h>
 #endif
+#include <GL/gl.h>
 #endif
 
 #include <math.h>
@@ -139,7 +148,24 @@ extern "C"
 {
 #endif
 
+/* these are defined here because they are not part of opengl 1.1 (the one included by default on windows) */
+#ifdef _WIN32
+static PFNGLACTIVETEXTUREPROC glActiveTexture = NULL;
+static PFNGLCLIENTACTIVETEXTUREPROC glClientActiveTexture = NULL;
+static PFNGLGENERATEMIPMAPPROC glGenerateMipmap = NULL;
+#endif
+
 /* setup */
+
+void lgfx_init()
+{
+  /* get extension functions in windows */
+#ifdef _WIN32
+  glActiveTexture = (PFNGLACTIVETEXTUREPROC)wglGetProcAddress("glActiveTexture");
+  glClientActiveTexture = (PFNGLCLIENTACTIVETEXTUREPROC)wglGetProcAddress("glClientActiveTexture");
+  glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC)wglGetProcAddress("glGenerateMipmap");
+#endif
+}
 
 void lgfx_setup2d(int width, int height)
 {
@@ -151,6 +177,17 @@ void lgfx_setup2d(int width, int height)
   glEnableClientState(GL_VERTEX_ARRAY);
   glDisableClientState(GL_NORMAL_ARRAY);
   glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+  if (lgfx_multitexture_supported())
+  {
+    glActiveTexture(GL_TEXTURE1);
+    glEnable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE2);
+    glEnable(GL_TEXTURE_CUBE_MAP);
+    glActiveTexture(GL_TEXTURE0);
+    glClientActiveTexture(GL_TEXTURE1);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glClientActiveTexture(GL_TEXTURE0);
+  }
   lgfx_setviewport(0, 0, width, height);
   lgfx_setorigin(0, 0);
   lgfx_setresolution(width, height);
@@ -160,7 +197,7 @@ void lgfx_setup2d(int width, int height)
   lgfx_setculling(0);
   lgfx_setlighting(0);
   lgfx_setfog(0,0,0,0,0,0);
-  ltex_bindcolor(0);
+  ltex_bind(0, 0, 0);
 }
 
 void lgfx_setup3d(int width, int height)
@@ -181,6 +218,17 @@ void lgfx_setup3d(int width, int height)
   glFogi(GL_FOG_MODE, GL_LINEAR);
   glFrontFace(GL_CW);
   glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+  if (lgfx_multitexture_supported())
+  {
+    glActiveTexture(GL_TEXTURE1);
+    glEnable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE2);
+    glEnable(GL_TEXTURE_CUBE_MAP);
+    glActiveTexture(GL_TEXTURE0);
+    glClientActiveTexture(GL_TEXTURE1);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glClientActiveTexture(GL_TEXTURE0);
+  }
   lgfx_setviewport(0, 0, width, height);
   lgfx_setorigin(0, 0);
   lgfx_setblend(B_SOLID);
@@ -190,7 +238,7 @@ void lgfx_setup3d(int width, int height)
   lgfx_setdepthwrite(1);
   lgfx_setlighting(0);
   lgfx_setfog(0,0,0,0,0,0);
-  ltex_bindcolor(0);
+  ltex_bind(0, 0, 0);
 }
 
 void lgfx_setviewport(int x, int y, int width, int height)
@@ -366,8 +414,8 @@ void lgfx_drawpoint(float x, float y)
   lvert_t vert;
   
   vert = lvert(x, y, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
-  ltex_bindcolor(0);
-  lvert_draw(&vert, 1, MODE_POINTS);
+  ltex_bind(0, 0, 0);
+  lvert_draw(&vert, 1, R_POINTS);
 }
 
 void lgfx_drawline(float x0, float y0, float x1, float y1)
@@ -376,8 +424,8 @@ void lgfx_drawline(float x0, float y0, float x1, float y1)
 
   verts[0] = lvert(x0, y0, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
   verts[1] = lvert(x1, y1, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
-  ltex_bindcolor(0);
-  lvert_draw(verts, 2, MODE_LINES);
+  ltex_bind(0, 0, 0);
+  lvert_draw(verts, 2, R_LINES);
 }
 
 void lgfx_drawrect(float x, float y, float width, float height)
@@ -388,8 +436,8 @@ void lgfx_drawrect(float x, float y, float width, float height)
   verts[1] = lvert(x+width, y, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
   verts[2] = lvert(x, y+height, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
   verts[3] = lvert(x+width, y+height, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
-  ltex_bindcolor(0);
-  lvert_draw(verts, 4, MODE_TRIANGLE_STRIP);
+  ltex_bind(0, 0, 0);
+  lvert_draw(verts, 4, R_TRIANGLE_STRIP);
 }
 
 void lgfx_drawoval(float x, float y, float width, float height)
@@ -408,22 +456,49 @@ void lgfx_drawoval(float x, float y, float width, float height)
   {
     verts[i] = lvert(centerx + ((float)cos(i * inc) * halfwidth), centery + ((float)sin(i * inc) * halfheight), 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
   }
-  ltex_bindcolor(0);
-  lvert_draw(verts, OVALPOINTS, MODE_TRIANGLE_FAN);
+  ltex_bind(0, 0, 0);
+  lvert_draw(verts, OVALPOINTS, R_TRIANGLE_FAN);
+}
+
+int lgfx_multitexture_supported() {
+  return glActiveTexture != NULL && glClientActiveTexture != NULL;
+}
+
+int lgfx_mipmapping_supported() {
+  return glGenerateMipmap != NULL;
 }
 
 /* texture */
 
-ltex_t* ltex_alloc(int width, int height, int filtering)
+ltex_t* ltex_alloc(int width, int height, int filter)
 {
   GLuint gltex;
+  GLint minfilter, magfilter;
   ltex_t* tex;
+
+  /* get filter modes */
+  if (filter == F_MIPMAP && !lgfx_mipmapping_supported()) filter = F_LINEAR;
+  switch (filter)
+  {
+    case F_NONE:
+      minfilter = GL_NEAREST;
+      magfilter = GL_NEAREST;
+      break;
+    case F_LINEAR:
+      minfilter = GL_LINEAR;
+      magfilter = GL_LINEAR;
+      break;
+    case F_MIPMAP:
+      minfilter = GL_LINEAR_MIPMAP_LINEAR;
+      magfilter = GL_LINEAR;
+      break;
+  }
 
   /* generate opengl texture */
   glGenTextures(1, &gltex);
   glBindTexture(GL_TEXTURE_2D, gltex);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering ? GL_LINEAR : GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering ? GL_LINEAR : GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minfilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magfilter);
   glBindTexture(GL_TEXTURE_2D, 0);
 
   /* generate tex object */
@@ -431,6 +506,7 @@ ltex_t* ltex_alloc(int width, int height, int filtering)
   tex->glid = (int)gltex;
   tex->width = width;
   tex->height = height;
+  tex->filter = filter;
 
   return tex;
 }
@@ -445,6 +521,7 @@ void ltex_setpixels(const ltex_t* tex, const unsigned char* pixels)
 {
   glBindTexture(GL_TEXTURE_2D, (GLuint)tex->glid);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex->width, tex->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  if (tex->filter == F_MIPMAP) glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -477,14 +554,25 @@ void ltex_drawrotsized(const ltex_t* tex, float x, float y, float angle, float p
   glTranslatef(x, y, 0);
   glRotatef(angle, 0, 0, -1);
   glScalef(width, height, 1);
-  ltex_bindcolor(tex);
-  lvert_draw(verts, 4, MODE_TRIANGLE_STRIP);
+  ltex_bind(tex, 0, 0);
+  lvert_draw(verts, 4, R_TRIANGLE_STRIP);
   glPopMatrix();
 }
 
-void ltex_bindcolor(const ltex_t* tex)
+void ltex_bind(const ltex_t* tex, const ltex_t* lightmap, int use_envlights)
 {
-  glBindTexture(GL_TEXTURE_2D, tex ? (GLuint)tex->glid : 0);
+  if (lgfx_multitexture_supported())
+  {
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, use_envlights ? GL_ADD : GL_MODULATE);
+    glBindTexture(GL_TEXTURE_2D, lightmap ? lightmap->glid : 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, tex ? (GLuint)tex->glid : 0);
+    glActiveTexture(GL_TEXTURE0);
+  }
+  else
+  {
+    glBindTexture(GL_TEXTURE_2D, tex ? (GLuint)tex->glid : 0);
+  }
 }
 
 /* vertex */
@@ -493,15 +581,15 @@ static GLenum _lgfx_pickglrendermode(lrendermode_t mode)
 {
   switch (mode)
   {
-  case MODE_POINTS:
+  case R_POINTS:
     return GL_POINTS;
-  case MODE_LINES:
+  case R_LINES:
     return GL_LINES;
-  case MODE_TRIANGLES:
+  case R_TRIANGLES:
     return GL_TRIANGLES;
-  case MODE_TRIANGLE_STRIP:
+  case R_TRIANGLE_STRIP:
     return GL_TRIANGLE_STRIP;
-  case MODE_TRIANGLE_FAN:
+  case R_TRIANGLE_FAN:
     return GL_TRIANGLE_FAN;
   default:
     return GL_TRIANGLES;
@@ -533,7 +621,18 @@ void lvert_draw(const lvert_t* vertices, unsigned int count, lrendermode_t mode)
 {
   glVertexPointer(3, GL_FLOAT, sizeof(lvert_t), &vertices->pos[0]);
   glNormalPointer(GL_FLOAT, sizeof(lvert_t), &vertices->nor[0]);
-  glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
+  if (lgfx_multitexture_supported())
+  {
+    glClientActiveTexture(GL_TEXTURE0);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
+    glClientActiveTexture(GL_TEXTURE1);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex2[0]);
+    glClientActiveTexture(GL_TEXTURE0);
+  }
+  else
+  {
+    glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
+  }
   glColorPointer(4, GL_FLOAT, sizeof(lvert_t), &vertices->col[0]);
   glDrawArrays(_lgfx_pickglrendermode(mode), 0, count);
 }
@@ -542,7 +641,18 @@ void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, u
 {
   glVertexPointer(3, GL_FLOAT, sizeof(lvert_t), &vertices->pos[0]);
   glNormalPointer(GL_FLOAT, sizeof(lvert_t), &vertices->nor[0]);
-  glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
+  if (lgfx_multitexture_supported())
+  {
+    glClientActiveTexture(GL_TEXTURE0);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex2[0]);
+    glClientActiveTexture(GL_TEXTURE1);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
+    glClientActiveTexture(GL_TEXTURE0);
+  }
+  else
+  {
+    glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
+  }
   glColorPointer(4, GL_FLOAT, sizeof(lvert_t), &vertices->col[0]);
   glDrawElements(_lgfx_pickglrendermode(mode), count, GL_UNSIGNED_SHORT, indices);
 }
