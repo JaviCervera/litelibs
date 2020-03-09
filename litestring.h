@@ -16,8 +16,6 @@ extern "C"
 const char* lstr_alloc(const char* s);
 char* lstr_allocempty(size_t n);
 const char* lstr_get(const char* s);
-const char* lstr_add(const char* a, const char* b);
-const char* lstr_sub(const char* s, size_t pos, size_t len);
 
 #ifdef __cplusplus
 }
@@ -50,20 +48,6 @@ char* lstr_allocempty(size_t n)
 const char* lstr_get(const char* s)
 {
   return (const char*)lmem_autorelease((char*)lstr_alloc(s));
-}
-
-const char* lstr_add(const char* a, const char* b)
-{
-  char* str = lstr_allocempty(strlen(a) + strlen(b));
-  sprintf(str, "%s%s", a, b);
-  return str;
-}
-
-const char* lstr_sub(const char* s, size_t pos, size_t len)
-{
-  char* str = lstr_allocempty(len);
-  strncpy(str, &s[pos], len);
-  return str;
 }
 
 #ifdef __cplusplus
