@@ -132,6 +132,7 @@ void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, u
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <GL/gl.h>
 #include <GL/glext.h>
 #endif
 #include <GL/gl.h>
