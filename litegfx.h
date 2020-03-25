@@ -44,7 +44,7 @@ void lgfx_setusevertexcolor(int enable);
 void lgfx_setculling(int enable);
 void lgfx_setdepthwrite(int enable);
 void lgfx_setlighting(int numlights);
-void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g, float b, float att); /* position must be passed in viewer space */
+void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g, float b, int color_specular, float att); /* position must be passed in viewer space */
 void lgfx_setambient(float r, float g, float b);
 void lgfx_setfog(int enable, float r, float g, float b, float start, float end);
 void lgfx_clearcolorbuffer(float r, float g, float b);
@@ -302,13 +302,13 @@ void lgfx_setcolor(float r, float g, float b, float a)
 
 void lgfx_setemissive(float r, float g, float b)
 {
-  float emissive[3] = {r, g, b};
+  float emissive[4] = {r, g, b, 1};
   glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
 }
 
 void lgfx_setspecular(float r, float g, float b)
 {
-  float specular[3] = {r, g, b};
+  float specular[4] = {r, g, b, 1};
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
 }
 
@@ -351,10 +351,10 @@ void lgfx_setlighting(int numlights)
   for (i = numlights; i < 8; ++i) glDisable(GL_LIGHT0+i);
 }
 
-void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g, float b, float att)
+void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g, float b, int color_specular, float att)
 {
   float pos[4];
-  float col[3];
+  float col[4];
 
   pos[0] = x;
   pos[1] = y;
@@ -363,9 +363,15 @@ void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g
   col[0] = r;
   col[1] = g;
   col[2] = b;
+  col[3] = 1;
   glLightfv(GL_LIGHT0 + num, GL_POSITION, pos);
   glLightfv(GL_LIGHT0 + num, GL_DIFFUSE, col);
-  glLightfv(GL_LIGHT0 + num, GL_SPECULAR, col);
+  if (color_specular == 1) {
+    glLightfv(GL_LIGHT0 + num, GL_SPECULAR, col);
+  } else {
+    float white[4] = {1, 1, 1, 1};
+    glLightfv(GL_LIGHT0 + num, GL_SPECULAR, white);
+  }
   glLightf(GL_LIGHT0 + num, GL_LINEAR_ATTENUATION, att);
 }
 
