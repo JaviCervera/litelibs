@@ -53,6 +53,7 @@ void lgfx_drawpoint(float x, float y);
 void lgfx_drawline(float x0, float y0, float x1, float y1);
 void lgfx_drawrect(float x, float y, float width, float height);
 void lgfx_drawoval(float x, float y, float width, float height);
+void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buffer);
 int lgfx_multitexture_supported();
 int lgfx_mipmapping_supported();
 
@@ -156,6 +157,8 @@ static PFNGLCLIENTACTIVETEXTUREPROC glClientActiveTexture = NULL;
 static PFNGLGENERATEMIPMAPPROC glGenerateMipmap = NULL;
 #endif
 
+static int _lgfx_last_set_height = 0;
+
 /* setup */
 
 void lgfx_init()
@@ -170,6 +173,7 @@ void lgfx_init()
 
 void lgfx_setup2d(int width, int height)
 {
+  _lgfx_last_set_height = height;
   glDisable(GL_ALPHA_TEST);
   glEnable(GL_BLEND);
   glDisable(GL_DEPTH_TEST);
@@ -203,6 +207,7 @@ void lgfx_setup2d(int width, int height)
 
 void lgfx_setup3d(int width, int height)
 {
+  _lgfx_last_set_height = height;
   glEnable(GL_ALPHA_TEST);
   glEnable(GL_BLEND);
   glEnable(GL_COLOR_MATERIAL);
@@ -244,8 +249,11 @@ void lgfx_setup3d(int width, int height)
 
 void lgfx_setviewport(int x, int y, int width, int height)
 {
-  glViewport(x, y, width, height);
-  glScissor(x, y, width, height);
+  int real_y;
+
+  real_y = _lgfx_last_set_height - (y + height);
+  glViewport(x, real_y, width, height);
+  glScissor(x, real_y, width, height);
   lgfx_setresolution(width, height);
 }
 
@@ -322,7 +330,9 @@ void lgfx_setusevertexcolor(int enable)
   if (enable)
   {
     glEnableClientState(GL_COLOR_ARRAY);
-  } else {
+  }
+  else
+  {
     glDisableClientState(GL_COLOR_ARRAY);
   }
 }
@@ -332,7 +342,9 @@ void lgfx_setculling(int enable)
   if (enable)
   {
     glEnable(GL_CULL_FACE);
-  } else {
+  }
+  else
+  {
     glDisable(GL_CULL_FACE);
   }
 }
@@ -368,7 +380,9 @@ void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g
   glLightfv(GL_LIGHT0 + num, GL_DIFFUSE, col);
   if (color_specular == 1) {
     glLightfv(GL_LIGHT0 + num, GL_SPECULAR, col);
-  } else {
+  }
+  else
+  {
     float white[4] = {1, 1, 1, 1};
     glLightfv(GL_LIGHT0 + num, GL_SPECULAR, white);
   }
@@ -397,7 +411,9 @@ void lgfx_setfog(int enable, float r, float g, float b, float start, float end)
   if (enable)
   {
     glEnable(GL_FOG);
-  } else {
+  }
+  else
+  {
     glDisable(GL_FOG);
   }
   glFogfv(GL_FOG_COLOR, color);
@@ -467,11 +483,40 @@ void lgfx_drawoval(float x, float y, float width, float height)
   lvert_draw(verts, OVALPOINTS, R_TRIANGLE_FAN);
 }
 
-int lgfx_multitexture_supported() {
+void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buffer)
+{
+  int real_y;
+  int line_size;
+  unsigned char* line;
+  int last_line;
+
+  real_y = _lgfx_last_set_height - (y + height);
+  glFinish();
+  glReadPixels(x, real_y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+  line_size = width * 4;
+  line = (unsigned char*)malloc(line_size);
+  last_line = height - 1;
+  for (int y = 0; y < height / 2; ++y)
+  {
+    unsigned char* top_ptr;
+    unsigned char* bottom_ptr;
+
+    top_ptr = &buffer[y*width*4];
+    bottom_ptr = &buffer[(last_line - y)*width*4];
+    memcpy(line, top_ptr, line_size);
+    memcpy(top_ptr, bottom_ptr, line_size);
+    memcpy(bottom_ptr, line, line_size);
+  }
+  free(line);
+}
+
+int lgfx_multitexture_supported()
+{
   return glActiveTexture != NULL && glClientActiveTexture != NULL;
 }
 
-int lgfx_mipmapping_supported() {
+int lgfx_mipmapping_supported()
+{
   return glGenerateMipmap != NULL;
 }
 
