@@ -25,6 +25,10 @@ size_t lmem_release(void* block);
 void* lmem_autorelease(void* block);
 void lmem_doautorelease();
 
+const char* lstr_alloc(const char* s);
+char* lstr_allocempty(size_t n);
+const char* lstr_get(const char* s);
+
 #ifdef __cplusplus
 }
 #endif
@@ -34,6 +38,7 @@ void lmem_doautorelease();
 #ifdef LITE_MEM_IMPLEMENTATION
 
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -114,6 +119,23 @@ void lmem_doautorelease()
   free(_lmem_pool.blocks);
   _lmem_pool.blocks = NULL;
   _lmem_pool.numblocks = 0;
+}
+
+const char* lstr_alloc(const char* s)
+{
+  char* string = (char*)_lmem_alloc((strlen(s) + 1) * sizeof(char), NULL);
+  strcpy(string, s);
+  return string;
+}
+
+char* lstr_allocempty(size_t n)
+{
+  return (char*)_mem_alloc((n + 1) * sizeof(char), NULL);
+}
+
+const char* lstr_get(const char* s)
+{
+  return (const char*)lmem_autorelease((char*)lstr_alloc(s));
 }
 
 #ifdef __cplusplus

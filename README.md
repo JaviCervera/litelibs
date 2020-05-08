@@ -1,5 +1,6 @@
-# LiteLibs
-Single file C libraries useful specially for game development:
+# ![LiteLibs](logo.png) LiteLibs
+
+Single file C libraries oriented to game development:
 
 * **liteassbin.h**: Loader for Assimp's native binary model format. Does not support animations.
 * **litecol.h**: Collision detection between axis-aligned bounding boxes and spheres.
