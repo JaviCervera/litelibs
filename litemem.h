@@ -15,9 +15,9 @@ No warranty implied. Use as you wish and at your own risk
 #define lmem_assign(V, E) (lmem_retain(E), lmem_release(V), V = E)
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
+
 
 void* _lmem_alloc(size_t size, void* func);
 size_t lmem_retain(void* block);
@@ -25,9 +25,11 @@ size_t lmem_release(void* block);
 void* lmem_autorelease(void* block);
 void lmem_doautorelease();
 
+
 const char* lstr_alloc(const char* s);
 char* lstr_allocempty(size_t n);
 const char* lstr_get(const char* s);
+
 
 #ifdef __cplusplus
 }
@@ -35,73 +37,74 @@ const char* lstr_get(const char* s);
 
 #endif /* LITE_MEM_H */
 
+
+
+
+/* IMPLEMENTATION */
+
+
+
+
 #ifdef LITE_MEM_IMPLEMENTATION
 
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-typedef struct
-{
+
+typedef struct {
   size_t count;
   void (* delfunc)(void*);
 } lmem_rc_t;
 
-typedef struct
-{
+
+typedef struct {
   void** blocks;
   size_t numblocks;
 } lmem_pool_t;
 
+
 static lmem_pool_t _lmem_pool = {};
 
-void* _lmem_alloc(size_t size, void* func)
-{
+
+void* _lmem_alloc(size_t size, void* func) {
   lmem_rc_t* rc = (lmem_rc_t*)calloc(1, sizeof(lmem_rc_t) + size);
   rc->count = 1;
   rc->delfunc = (void (*)(void*))func;
   return rc + 1;
 }
 
-size_t lmem_retain(void* block)
-{
-  if (block)
-  {
+
+size_t lmem_retain(void* block) {
+  if (block) {
     lmem_rc_t* rc = (lmem_rc_t*)block - 1;
     return ++rc->count;
-  }
-  else
-  {
+  } else {
     return 0;
   }
 }
 
-size_t lmem_release(void* block)
-{
-  if (block)
-  {
+
+size_t lmem_release(void* block) {
+  if (block) {
     size_t count;
     lmem_rc_t* rc = (lmem_rc_t*)block - 1;
     count = --rc->count;
-    if (count == 0)
-    {
+    if (count == 0) {
       if (rc->delfunc) rc->delfunc(block);
       free(rc);
     }
     return count;
-  }
-  else
-  {
+  } else {
     return 0;
   }
 }
 
-void* lmem_autorelease(void* block)
-{
+
+void* lmem_autorelease(void* block) {
   _lmem_pool.blocks = (void**)realloc(
     _lmem_pool.blocks,
     ++_lmem_pool.numblocks * sizeof(void*));
@@ -109,11 +112,10 @@ void* lmem_autorelease(void* block)
   return block;
 }
 
-void lmem_doautorelease()
-{
+
+void lmem_doautorelease() {
   size_t i;
-  for (i = 0; i < _lmem_pool.numblocks; ++i)
-  {
+  for (i = 0; i < _lmem_pool.numblocks; ++i) {
     lmem_release(_lmem_pool.blocks[i]);
   }
   free(_lmem_pool.blocks);
@@ -121,22 +123,23 @@ void lmem_doautorelease()
   _lmem_pool.numblocks = 0;
 }
 
-const char* lstr_alloc(const char* s)
-{
+
+const char* lstr_alloc(const char* s) {
   char* string = (char*)_lmem_alloc((strlen(s) + 1) * sizeof(char), NULL);
   strcpy(string, s);
   return string;
 }
 
-char* lstr_allocempty(size_t n)
-{
+
+char* lstr_allocempty(size_t n) {
   return (char*)_mem_alloc((n + 1) * sizeof(char), NULL);
 }
 
-const char* lstr_get(const char* s)
-{
+
+const char* lstr_get(const char* s) {
   return (const char*)lmem_autorelease((char*)lstr_alloc(s));
 }
+
 
 #ifdef __cplusplus
 }

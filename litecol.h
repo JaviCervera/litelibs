@@ -12,10 +12,12 @@ No warranty implied. Use as you wish and at your own risk
 extern "C" {
 #endif
 
+
 int lcol_boxbox(float minx1, float miny1, float minz1, float maxx1, float maxy1, float maxz1, float minx2, float miny2, float minz2, float maxx2, float maxy2, float maxz2);
 int lcol_boxsphere(float minx1, float miny1, float minz1, float maxx1, float maxy1, float maxz1, float sx, float sy, float sz, float sqrad);
 int lcol_spheresphere(float sx1, float sy1, float sz1, float sqrad1, float sx2, float sy2, float sz2, float sqrad2);
 int lcol_pointinbox(float x, float y, float z, float minx, float miny, float minz, float maxx, float maxy, float maxz);
+
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -25,7 +27,9 @@ int lcol_pointinbox(float x, float y, float z, float minx, float miny, float min
 
 
 
+
 /* IMPLEMENTATION */
+
 
 
 
@@ -40,30 +44,24 @@ int lcol_pointinbox(float x, float y, float z, float minx, float miny, float min
 extern "C" {
 #endif
 
-int lcol_boxbox(float minx1, float miny1, float minz1, float maxx1, float maxy1, float maxz1, float minx2, float miny2, float minz2, float maxx2, float maxy2, float maxz2)
-{
+
+int lcol_boxbox(float minx1, float miny1, float minz1, float maxx1, float maxy1, float maxz1, float minx2, float miny2, float minz2, float maxx2, float maxy2, float maxz2) {
   if (lcol_pointinbox(minx1, miny1, minz1, minx2, miny2, minz2, maxx2, maxy2, maxz2)
       || lcol_pointinbox(maxx1, maxy1, maxz1, minx2, miny2, minz2, maxx2, maxy2, maxz2)
       || lcol_pointinbox(minx2, miny2, minz2, minx1, miny1, minz1, maxx1, maxy1, maxz1)
-      || lcol_pointinbox(maxx2, maxy2, maxz2, minx1, miny1, minz1, maxx1, maxy1, maxz1))
-  {
+      || lcol_pointinbox(maxx2, maxy2, maxz2, minx1, miny1, minz1, maxx1, maxy1, maxz1)) {
     return 1;
-  }
-  else
-  {
+  } else {
     return 0;
   }
 }
 
-int lcol_boxsphere(float minx, float miny, float minz, float maxx, float maxy, float maxz, float sx, float sy, float sz, float sqrad)
-{
+
+int lcol_boxsphere(float minx, float miny, float minz, float maxx, float maxy, float maxz, float sx, float sy, float sz, float sqrad) {
   /* check if sphere center is in box */
-  if (lcol_pointinbox(sx, sy, sz, minx, miny, minz, maxx, maxy, maxz))
-  {
+  if (lcol_pointinbox(sx, sy, sz, minx, miny, minz, maxx, maxy, maxz)) {
     return 1;
-  }
-  else
-  {
+  } else {
     float vx, vy, vz;
     float sqlength;
 
@@ -84,8 +82,8 @@ int lcol_boxsphere(float minx, float miny, float minz, float maxx, float maxy, f
   }
 }
 
-int lcol_spheresphere(float sx1, float sy1, float sz1, float sqrad1, float sx2, float sy2, float sz2, float sqrad2)
-{
+
+int lcol_spheresphere(float sx1, float sy1, float sz1, float sqrad1, float sx2, float sy2, float sz2, float sqrad2) {
   float vx, vy, vz;
   float sqlength;
 
@@ -100,10 +98,11 @@ int lcol_spheresphere(float sx1, float sy1, float sz1, float sqrad1, float sx2, 
   return sqlength < sqrad1 + sqrad2;
 }
 
-int lcol_pointinbox(float x, float y, float z, float minx, float miny, float minz, float maxx, float maxy, float maxz)
-{
+
+int lcol_pointinbox(float x, float y, float z, float minx, float miny, float minz, float maxx, float maxy, float maxz) {
   return _inrange(x, minx, maxx) && _inrange(y, miny, maxy) && _inrange(z, minz, maxz);
 }
+
 
 #ifdef __cplusplus
 } /* extern "C" */

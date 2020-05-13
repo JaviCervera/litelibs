@@ -14,25 +14,25 @@ No warranty implied. Use as you wish and at your own risk
 extern "C" {
 #endif
 
+
 struct ltestcase_s;
 typedef void(* ltest_f)(struct ltestcase_s*);
-
 typedef void(* ltestprint_f)(const char*);
 
-typedef struct
-{
+
+typedef struct {
   char str[128];
 } lteststr_t;
 
-typedef struct
-{
+
+typedef struct {
   ltest_f test;
   lteststr_t msg;
   lteststr_t output;
 } ltest_t;
 
-typedef struct ltestcase_s
-{
+
+typedef struct ltestcase_s {
   lteststr_t name;
   ltest_f initcase;
   ltest_f deinitcase;
@@ -45,6 +45,7 @@ typedef struct ltestcase_s
   size_t ok_asserts;
   size_t fail_asserts;
 } ltestcase_t;
+
 
 void ltestcase_init(ltestcase_t* case_, const char* name, ltest_f initcase, ltest_f deinitcase, ltest_f inittest, ltest_f deinittest);
 void ltestcase_addtest(ltestcase_t* case_, ltest_f func, const char* msg);
@@ -66,15 +67,16 @@ void ltest_printfunc(ltestprint_f func);
 #include <stdlib.h>
 #include <string.h>
 
-static void _ltest_printstd(const char* msg)
-{
+
+static void _ltest_printstd(const char* msg) {
   printf("%s\n", msg);
 }
 
+
 static ltestprint_f _ltest_printfunc = _ltest_printstd;
 
-void ltestcase_init(ltestcase_t* case_, const char* name, ltest_f initcase, ltest_f deinitcase, ltest_f inittest, ltest_f deinittest)
-{
+
+void ltestcase_init(ltestcase_t* case_, const char* name, ltest_f initcase, ltest_f deinitcase, ltest_f inittest, ltest_f deinittest) {
   snprintf(case_->name.str, sizeof(lteststr_t), "%s", name);
   case_->initcase = initcase;
   case_->deinitcase = deinitcase;
@@ -88,10 +90,9 @@ void ltestcase_init(ltestcase_t* case_, const char* name, ltest_f initcase, ltes
   case_->fail_asserts = 0;
 }
 
-void ltestcase_addtest(ltestcase_t* case_, ltest_f func, const char* msg)
-{
-  if (case_->num_tests == case_->capacity)
-  {
+
+void ltestcase_addtest(ltestcase_t* case_, ltest_f func, const char* msg) {
+  if (case_->num_tests == case_->capacity) {
     case_->capacity += 10;
     case_->tests = (ltest_t*)realloc(case_->tests, case_->capacity * sizeof(ltest_t));
   }
@@ -101,8 +102,8 @@ void ltestcase_addtest(ltestcase_t* case_, ltest_f func, const char* msg)
   case_->num_tests++;
 }
 
-void ltestcase_run(ltestcase_t* case_)
-{
+
+void ltestcase_run(ltestcase_t* case_) {
   lteststr_t str;
   
   /* init tests */
@@ -113,8 +114,7 @@ void ltestcase_run(ltestcase_t* case_)
   case_->fail_asserts = 0;
 
   /* run tests */
-  for (case_->current_test = 0; case_->current_test < case_->num_tests; ++case_->current_test)
-  {
+  for (case_->current_test = 0; case_->current_test < case_->num_tests; ++case_->current_test) {
     /* init environment */
     if (case_->inittest) case_->inittest(case_);
     strcpy(case_->tests[case_->current_test].output.str, "");
@@ -141,18 +141,19 @@ void ltestcase_run(ltestcase_t* case_)
   _ltest_printfunc("");
 }
 
-int ltest_assert(ltestcase_t* case_, int expression)
-{
+
+int ltest_assert(ltestcase_t* case_, int expression) {
   strcat(case_->tests[case_->current_test].output.str, expression ? "+" : "-");
   if (expression) case_->ok_asserts++;
   else case_->fail_asserts++;
   return expression;
 }
 
-void ltest_printfunc(ltestprint_f func)
-{
+
+void ltest_printfunc(ltestprint_f func) {
   _ltest_printfunc = func;
 }
+
 
 #endif /* LITE_UNIT_IMPLEMENTATION */
 

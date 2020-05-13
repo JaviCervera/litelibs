@@ -13,19 +13,20 @@ No warranty implied. Use as you wish and at your own risk
 #define LITE_GFX_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
+
 
 /* main */
 
-typedef enum
-{
+
+typedef enum {
   B_SOLID,
   B_ALPHA,
   B_ADD,
   B_MUL
 } lblend_t;
+
 
 void lgfx_init();
 void lgfx_setup2d(int width, int height);
@@ -57,22 +58,24 @@ void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buff
 int lgfx_multitexture_supported();
 int lgfx_mipmapping_supported();
 
+
 /* texture */
 
-typedef enum
-{
+
+typedef enum {
   F_NONE,
   F_LINEAR,
   F_MIPMAP
 } ltexfilter_t;
 
-typedef struct
-{
+
+typedef struct {
   int glid;
   int width;
   int height;
   int filter;
 } ltex_t;
+
 
 ltex_t* ltex_alloc(int width, int height, int filter);
 void ltex_free(ltex_t* tex);
@@ -83,10 +86,11 @@ void ltex_drawrot(const ltex_t* tex, float x, float y, float angle, float pivotx
 void ltex_drawrotsized(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty, float width, float height, float u0, float v0, float u1, float v1);
 void ltex_bind(const ltex_t* tex, const ltex_t* lightmap, int use_envlights);
 
+
 /* vertex */
 
-typedef enum
-{
+
+typedef enum {
   R_POINTS,
   R_LINES,
   R_TRIANGLES,
@@ -94,8 +98,8 @@ typedef enum
   R_TRIANGLE_FAN
 } lrendermode_t;
 
-typedef struct
-{
+
+typedef struct {
   float pos[3];
   float nor[3];
   float tex[2];
@@ -103,9 +107,11 @@ typedef struct
   float col[4];
 } lvert_t;
 
+
 lvert_t lvert(float x, float y, float z, float nx, float ny, float nz, float u, float v, float r, float g, float b, float a);
 void lvert_draw(const lvert_t* vertices, unsigned int count, lrendermode_t mode);
 void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, unsigned int count, lrendermode_t mode);
+
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -146,9 +152,9 @@ void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, u
 #define OVALPOINTS 64
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
+
 
 /* these are defined here because they are not part of opengl 1.1 (the one included by default on windows) */
 #ifdef _WIN32
@@ -157,12 +163,14 @@ static PFNGLCLIENTACTIVETEXTUREPROC glClientActiveTexture = NULL;
 static PFNGLGENERATEMIPMAPPROC glGenerateMipmap = NULL;
 #endif
 
+
 static int _lgfx_last_set_height = 0;
+
 
 /* setup */
 
-void lgfx_init()
-{
+
+void lgfx_init() {
   /* get extension functions in windows */
 #ifdef _WIN32
   glActiveTexture = (PFNGLACTIVETEXTUREPROC)wglGetProcAddress("glActiveTexture");
@@ -171,8 +179,7 @@ void lgfx_init()
 #endif
 }
 
-void lgfx_setup2d(int width, int height)
-{
+void lgfx_setup2d(int width, int height) {
   _lgfx_last_set_height = height;
   glDisable(GL_ALPHA_TEST);
   glEnable(GL_BLEND);
@@ -182,8 +189,7 @@ void lgfx_setup2d(int width, int height)
   glEnableClientState(GL_VERTEX_ARRAY);
   glDisableClientState(GL_NORMAL_ARRAY);
   glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-  if (lgfx_multitexture_supported())
-  {
+  if (lgfx_multitexture_supported()) {
     glActiveTexture(GL_TEXTURE1);
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE2);
@@ -205,8 +211,8 @@ void lgfx_setup2d(int width, int height)
   ltex_bind(0, 0, 0);
 }
 
-void lgfx_setup3d(int width, int height)
-{
+
+void lgfx_setup3d(int width, int height) {
   _lgfx_last_set_height = height;
   glEnable(GL_ALPHA_TEST);
   glEnable(GL_BLEND);
@@ -224,8 +230,7 @@ void lgfx_setup3d(int width, int height)
   glFogi(GL_FOG_MODE, GL_LINEAR);
   glFrontFace(GL_CW);
   glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-  if (lgfx_multitexture_supported())
-  {
+  if (lgfx_multitexture_supported()) {
     glActiveTexture(GL_TEXTURE1);
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE2);
@@ -247,8 +252,8 @@ void lgfx_setup3d(int width, int height)
   ltex_bind(0, 0, 0);
 }
 
-void lgfx_setviewport(int x, int y, int width, int height)
-{
+
+void lgfx_setviewport(int x, int y, int width, int height) {
   int real_y;
 
   real_y = _lgfx_last_set_height - (y + height);
@@ -257,36 +262,35 @@ void lgfx_setviewport(int x, int y, int width, int height)
   lgfx_setresolution(width, height);
 }
 
-void lgfx_setorigin(float x, float y)
-{
+
+void lgfx_setorigin(float x, float y) {
   glLoadIdentity();
   glTranslatef(-x, -y, 0);
 }
 
-void lgfx_setresolution(int width, int height)
-{
+
+void lgfx_setresolution(int width, int height) {
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(0, width, height, 0, 0, 1000);
   glMatrixMode(GL_MODELVIEW);
 }
 
-void lgfx_setprojection(const float* m)
-{
+
+void lgfx_setprojection(const float* m) {
   glMatrixMode(GL_PROJECTION);
   glLoadMatrixf(m);
   glMatrixMode(GL_MODELVIEW);
 }
 
-void lgfx_setmodelview(const float* m)
-{
+
+void lgfx_setmodelview(const float* m) {
   glLoadMatrixf(m);
 }
 
-void lgfx_setblend(lblend_t mode)
-{
-  switch (mode)
-  {
+
+void lgfx_setblend(lblend_t mode) {
+  switch (mode) {
   case B_SOLID:
     glBlendFunc(GL_ONE, GL_ZERO);
     break;
@@ -302,60 +306,54 @@ void lgfx_setblend(lblend_t mode)
   }
 }
 
-void lgfx_setcolor(float r, float g, float b, float a)
-{
+
+void lgfx_setcolor(float r, float g, float b, float a) {
   glColor4f(r, g, b, a);
-  // could be glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, &color);
+  /* could be glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, &color); */
 }
 
-void lgfx_setemissive(float r, float g, float b)
-{
+
+void lgfx_setemissive(float r, float g, float b) {
   float emissive[4] = {r, g, b, 1};
   glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
 }
 
-void lgfx_setspecular(float r, float g, float b)
-{
+
+void lgfx_setspecular(float r, float g, float b) {
   float specular[4] = {r, g, b, 1};
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
 }
 
-void lgfx_setshininess(unsigned char shininess)
-{
+
+void lgfx_setshininess(unsigned char shininess) {
   glMateriali(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
 }
 
-void lgfx_setusevertexcolor(int enable)
-{
-  if (enable)
-  {
+
+void lgfx_setusevertexcolor(int enable) {
+  if (enable) {
     glEnableClientState(GL_COLOR_ARRAY);
-  }
-  else
-  {
+  } else {
     glDisableClientState(GL_COLOR_ARRAY);
   }
 }
 
-void lgfx_setculling(int enable)
-{
-  if (enable)
-  {
+
+void lgfx_setculling(int enable) {
+  if (enable) {
     glEnable(GL_CULL_FACE);
-  }
-  else
-  {
+  } else {
     glDisable(GL_CULL_FACE);
   }
 }
 
-void lgfx_setdepthwrite(int enable)
-{
+
+void lgfx_setdepthwrite(int enable) {
   glDepthMask((GLboolean)enable);
 }
 
-void lgfx_setlighting(int numlights)
-{
+
+void lgfx_setlighting(int numlights) {
   int i;
 
   if (numlights > 0) glEnable(GL_LIGHTING); else glDisable(GL_LIGHTING);
@@ -363,8 +361,8 @@ void lgfx_setlighting(int numlights)
   for (i = numlights; i < 8; ++i) glDisable(GL_LIGHT0+i);
 }
 
-void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g, float b, int color_specular, float att)
-{
+
+void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g, float b, int color_specular, float att) {
   float pos[4];
   float col[4];
 
@@ -380,17 +378,15 @@ void lgfx_setlight(int num, float x, float y, float z, float w, float r, float g
   glLightfv(GL_LIGHT0 + num, GL_DIFFUSE, col);
   if (color_specular == 1) {
     glLightfv(GL_LIGHT0 + num, GL_SPECULAR, col);
-  }
-  else
-  {
+  } else {
     float white[4] = {1, 1, 1, 1};
     glLightfv(GL_LIGHT0 + num, GL_SPECULAR, white);
   }
   glLightf(GL_LIGHT0 + num, GL_LINEAR_ATTENUATION, att);
 }
 
-void lgfx_setambient(float r, float g, float b)
-{
+
+void lgfx_setambient(float r, float g, float b) {
   float ambient[4];
   
   ambient[0] = r;
@@ -400,20 +396,17 @@ void lgfx_setambient(float r, float g, float b)
   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
 }
 
-void lgfx_setfog(int enable, float r, float g, float b, float start, float end)
-{
+
+void lgfx_setfog(int enable, float r, float g, float b, float start, float end) {
   float color[4];
 
   color[0] = r;
   color[1] = g;
   color[2] = b;
   color[3] = 1;
-  if (enable)
-  {
+  if (enable) {
     glEnable(GL_FOG);
-  }
-  else
-  {
+  } else {
     glDisable(GL_FOG);
   }
   glFogfv(GL_FOG_COLOR, color);
@@ -421,19 +414,19 @@ void lgfx_setfog(int enable, float r, float g, float b, float start, float end)
   glFogf(GL_FOG_END, end);
 }
 
-void lgfx_clearcolorbuffer(float r, float g, float b)
-{
+
+void lgfx_clearcolorbuffer(float r, float g, float b) {
   glClearColor(r, g, b, 1);
   glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void lgfx_cleardepthbuffer()
-{
+
+void lgfx_cleardepthbuffer() {
   glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void lgfx_drawpoint(float x, float y)
-{
+
+void lgfx_drawpoint(float x, float y) {
   lvert_t vert;
   
   vert = lvert(x, y, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
@@ -441,8 +434,8 @@ void lgfx_drawpoint(float x, float y)
   lvert_draw(&vert, 1, R_POINTS);
 }
 
-void lgfx_drawline(float x0, float y0, float x1, float y1)
-{
+
+void lgfx_drawline(float x0, float y0, float x1, float y1) {
   lvert_t verts[2];
 
   verts[0] = lvert(x0, y0, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
@@ -451,8 +444,8 @@ void lgfx_drawline(float x0, float y0, float x1, float y1)
   lvert_draw(verts, 2, R_LINES);
 }
 
-void lgfx_drawrect(float x, float y, float width, float height)
-{
+
+void lgfx_drawrect(float x, float y, float width, float height) {
   lvert_t verts[4];
 
   verts[0] = lvert(x, y, 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
@@ -463,8 +456,8 @@ void lgfx_drawrect(float x, float y, float width, float height)
   lvert_draw(verts, 4, R_TRIANGLE_STRIP);
 }
 
-void lgfx_drawoval(float x, float y, float width, float height)
-{
+
+void lgfx_drawoval(float x, float y, float width, float height) {
   lvert_t verts[OVALPOINTS];
   float centerx, centery;
   float inc, halfwidth, halfheight;
@@ -475,16 +468,15 @@ void lgfx_drawoval(float x, float y, float width, float height)
   inc = 6.28318530718f / OVALPOINTS;
   halfwidth = width * 0.5f;
   halfheight = height * 0.5f;
-  for (i = 0; i < OVALPOINTS; ++i)
-  {
+  for (i = 0; i < OVALPOINTS; ++i) {
     verts[i] = lvert(centerx + ((float)cos(i * inc) * halfwidth), centery + ((float)sin(i * inc) * halfheight), 0, 0, 0, -1, 0, 0, 1, 1, 1, 1);
   }
   ltex_bind(0, 0, 0);
   lvert_draw(verts, OVALPOINTS, R_TRIANGLE_FAN);
 }
 
-void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buffer)
-{
+
+void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buffer) {
   int real_y;
   int line_size;
   unsigned char* line;
@@ -496,8 +488,7 @@ void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buff
   line_size = width * 4;
   line = (unsigned char*)malloc(line_size);
   last_line = height - 1;
-  for (int y = 0; y < height / 2; ++y)
-  {
+  for (int y = 0; y < height / 2; ++y) {
     unsigned char* top_ptr;
     unsigned char* bottom_ptr;
 
@@ -510,28 +501,28 @@ void lgfx_capturescreen(int x, int y, int width, int height, unsigned char* buff
   free(line);
 }
 
-int lgfx_multitexture_supported()
-{
+
+int lgfx_multitexture_supported() {
   return glActiveTexture != NULL && glClientActiveTexture != NULL;
 }
 
-int lgfx_mipmapping_supported()
-{
+
+int lgfx_mipmapping_supported() {
   return glGenerateMipmap != NULL;
 }
 
+
 /* texture */
 
-ltex_t* ltex_alloc(int width, int height, int filter)
-{
+
+ltex_t* ltex_alloc(int width, int height, int filter) {
   GLuint gltex;
   GLint minfilter, magfilter;
   ltex_t* tex;
 
   /* get filter modes */
   if (filter == F_MIPMAP && !lgfx_mipmapping_supported()) filter = F_LINEAR;
-  switch (filter)
-  {
+  switch (filter) {
     case F_NONE:
       minfilter = GL_NEAREST;
       magfilter = GL_NEAREST;
@@ -563,39 +554,39 @@ ltex_t* ltex_alloc(int width, int height, int filter)
   return tex;
 }
 
-void ltex_free(ltex_t* tex)
-{
+
+void ltex_free(ltex_t* tex) {
   if (tex && tex->glid != 0) glDeleteTextures(1, (const GLuint*)&tex->glid);
   free(tex);
 }
 
-void ltex_setpixels(const ltex_t* tex, const unsigned char* pixels)
-{
+
+void ltex_setpixels(const ltex_t* tex, const unsigned char* pixels) {
   glBindTexture(GL_TEXTURE_2D, (GLuint)tex->glid);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex->width, tex->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
   if (tex->filter == F_MIPMAP) glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void ltex_getpixels(const ltex_t* tex, unsigned char* out_pixels)
-{
+
+void ltex_getpixels(const ltex_t* tex, unsigned char* out_pixels) {
   glBindTexture(GL_TEXTURE_2D, (GLuint)tex->glid);
   glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, out_pixels);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void ltex_draw(const ltex_t* tex, float x, float y)
-{
+
+void ltex_draw(const ltex_t* tex, float x, float y) {
   ltex_drawrot(tex, x, y, 0, 0, 0);
 }
 
-void ltex_drawrot(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty)
-{
+
+void ltex_drawrot(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty) {
   ltex_drawrotsized(tex, x, y, angle, pivotx, pivoty, (float)tex->width, (float)tex->height, 0, 0, 1, 1);
 }
 
-void ltex_drawrotsized(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty, float width, float height, float u0, float v0, float u1, float v1)
-{
+
+void ltex_drawrotsized(const ltex_t* tex, float x, float y, float angle, float pivotx, float pivoty, float width, float height, float u0, float v0, float u1, float v1) {
   lvert_t verts[4];
 
   verts[0] = lvert(-pivotx, -pivoty, 0, 0, 0, -1, u0, v0, 1, 1, 1, 1);
@@ -611,28 +602,25 @@ void ltex_drawrotsized(const ltex_t* tex, float x, float y, float angle, float p
   glPopMatrix();
 }
 
-void ltex_bind(const ltex_t* tex, const ltex_t* lightmap, int use_envlights)
-{
-  if (lgfx_multitexture_supported())
-  {
+
+void ltex_bind(const ltex_t* tex, const ltex_t* lightmap, int use_envlights) {
+  if (lgfx_multitexture_supported()) {
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, use_envlights ? GL_ADD : GL_MODULATE);
     glBindTexture(GL_TEXTURE_2D, lightmap ? lightmap->glid : 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, tex ? (GLuint)tex->glid : 0);
     glActiveTexture(GL_TEXTURE0);
-  }
-  else
-  {
+  } else {
     glBindTexture(GL_TEXTURE_2D, tex ? (GLuint)tex->glid : 0);
   }
 }
 
+
 /* vertex */
 
-static GLenum _lgfx_pickglrendermode(lrendermode_t mode)
-{
-  switch (mode)
-  {
+
+static GLenum _lgfx_pickglrendermode(lrendermode_t mode) {
+  switch (mode) {
   case R_POINTS:
     return GL_POINTS;
   case R_LINES:
@@ -648,8 +636,8 @@ static GLenum _lgfx_pickglrendermode(lrendermode_t mode)
   }
 }
 
-lvert_t lvert(float x, float y, float z, float nx, float ny, float nz, float u, float v, float r, float g, float b, float a)
-{
+
+lvert_t lvert(float x, float y, float z, float nx, float ny, float nz, float u, float v, float r, float g, float b, float a) {
   lvert_t vert;
 
   vert.pos[0] = x;
@@ -669,45 +657,40 @@ lvert_t lvert(float x, float y, float z, float nx, float ny, float nz, float u, 
   return vert;
 }
 
-void lvert_draw(const lvert_t* vertices, unsigned int count, lrendermode_t mode)
-{
+
+void lvert_draw(const lvert_t* vertices, unsigned int count, lrendermode_t mode) {
   glVertexPointer(3, GL_FLOAT, sizeof(lvert_t), &vertices->pos[0]);
   glNormalPointer(GL_FLOAT, sizeof(lvert_t), &vertices->nor[0]);
-  if (lgfx_multitexture_supported())
-  {
+  if (lgfx_multitexture_supported()) {
     glClientActiveTexture(GL_TEXTURE0);
     glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
     glClientActiveTexture(GL_TEXTURE1);
     glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex2[0]);
     glClientActiveTexture(GL_TEXTURE0);
-  }
-  else
-  {
+  } else {
     glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
   }
   glColorPointer(4, GL_FLOAT, sizeof(lvert_t), &vertices->col[0]);
   glDrawArrays(_lgfx_pickglrendermode(mode), 0, count);
 }
 
-void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, unsigned int count, lrendermode_t mode)
-{
+
+void lvert_drawindexed(const lvert_t* vertices, const unsigned short* indices, unsigned int count, lrendermode_t mode) {
   glVertexPointer(3, GL_FLOAT, sizeof(lvert_t), &vertices->pos[0]);
   glNormalPointer(GL_FLOAT, sizeof(lvert_t), &vertices->nor[0]);
-  if (lgfx_multitexture_supported())
-  {
+  if (lgfx_multitexture_supported()) {
     glClientActiveTexture(GL_TEXTURE0);
     glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex2[0]);
     glClientActiveTexture(GL_TEXTURE1);
     glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
     glClientActiveTexture(GL_TEXTURE0);
-  }
-  else
-  {
+  } else {
     glTexCoordPointer(2, GL_FLOAT, sizeof(lvert_t), &vertices->tex[0]);
   }
   glColorPointer(4, GL_FLOAT, sizeof(lvert_t), &vertices->col[0]);
   glDrawElements(_lgfx_pickglrendermode(mode), count, GL_UNSIGNED_SHORT, indices);
 }
+
 
 #ifdef __cplusplus
 } /* extern "C" */

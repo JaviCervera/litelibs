@@ -17,9 +17,12 @@ No warranty implied. Use as you wish and at your own risk
 extern "C" {
 #endif
 
+
 extern float lmd2_normal_table[][3];
 
+
 /* header */
+
 
 typedef struct {
   int ident;                  /* magic number: "IDP2" */
@@ -45,31 +48,39 @@ typedef struct {
   int offset_end;             /* offset end of file */
 } lmd2_header_t;
 
+
 /* texture name */
+
 
 typedef struct {
   char name[64];              /* texture file name */
 } lmd2_skin_t;
 
+
 /* texture coords */
+
 
 typedef struct {
   short s;
   short t;
 } lmd2_texcoord_t;
 
+
 /* triangle info */
+
 
 typedef struct {
   unsigned short vertex[3];   /* vertex indices of the triangle */
   unsigned short st[3];       /* tex. coord. indices */
 } lmd2_triangle_t;
 
+
 /* compressed vertex */
 typedef struct {
   unsigned char v[3];           /* position */
   unsigned char normal_index;   /* normal vector index */
 } lmd2_vertex_t;
+
 
 /* model frame */
 typedef struct {
@@ -79,7 +90,9 @@ typedef struct {
   lmd2_vertex_t *verts;   /* list of frame's vertices */
 } lmd2_frame_t;
 
+
 /* model */
+
 
 typedef struct {
   lmd2_header_t header;
@@ -90,9 +103,11 @@ typedef struct {
   int* glcmds;
 } lmd2_model_t;
 
+
 lmd2_model_t* lmd2_load(const char* filename);
 lmd2_model_t* lmd2_loadmem(const char* mem);
 void lmd2_free(lmd2_model_t* mdl);
+
 
 #ifdef LITE_MD2_USE_GFX
 lvert_t* lmd2_getvertices(const lmd2_model_t* mdl, int frame);
@@ -121,7 +136,9 @@ lvert_t* lmd2_getvertices(const lmd2_model_t* mdl, int frame);
 extern "C" {
 #endif
 
+
 /* normal table */
+
 
 float lmd2_normal_table[][3] = {
   { -0.525731f,  0.000000f,  0.850651f },
@@ -288,8 +305,8 @@ float lmd2_normal_table[][3] = {
   { -0.688191f, -0.587785f, -0.425325f }
 };
 
-lmd2_model_t* lmd2_load(const char* filename)
-{
+
+lmd2_model_t* lmd2_load(const char* filename) {
   FILE *fhandle;
   long size;
   char* buffer;
@@ -312,8 +329,8 @@ lmd2_model_t* lmd2_load(const char* filename)
   return mdl;
 }
 
-lmd2_model_t* lmd2_loadmem(const char* mem)
-{
+
+lmd2_model_t* lmd2_loadmem(const char* mem) {
   lmd2_model_t* mdl;
   int offset;
   int i;
@@ -345,8 +362,7 @@ lmd2_model_t* lmd2_loadmem(const char* mem)
 
   /* read frames */
   offset = mdl->header.offset_frames;
-  for (i = 0; i < mdl->header.num_frames; ++i)
-  {
+  for (i = 0; i < mdl->header.num_frames; ++i) {
     int size = 0;
 
     /* memory allocation for vertices of this frame */
@@ -370,9 +386,7 @@ lmd2_model_t* lmd2_loadmem(const char* mem)
 }
 
 
-
-void lmd2_free(lmd2_model_t* mdl)
-{
+void lmd2_free(lmd2_model_t* mdl) {
   free(mdl->skins);
   free(mdl->texcoords);
   free(mdl->triangles);
@@ -381,10 +395,11 @@ void lmd2_free(lmd2_model_t* mdl)
   free(mdl);
 }
 
+
 #ifdef LITE_MD2_USE_GFX
 
-lvert_t* lmd2_getvertices(const lmd2_model_t* mdl, int frame)
-{
+
+lvert_t* lmd2_getvertices(const lmd2_model_t* mdl, int frame) {
   int i, j;
   float v[3];
   float n[3];
@@ -403,11 +418,9 @@ lvert_t* lmd2_getvertices(const lmd2_model_t* mdl, int frame)
   verts = (lvert_t*) malloc(sizeof(lvert_t) * mdl->header.num_tris * 3);
 
   /* get each triangle */
-  for (i = 0; i < mdl->header.num_tris; ++i)
-  {
+  for (i = 0; i < mdl->header.num_tris; ++i) {
     /* get each vertex */
-    for (j = 0; j < 3; ++j)
-    {
+    for (j = 0; j < 3; ++j) {
       /* get vertex */
       pvert = &pframe->verts[mdl->triangles[i].vertex[j]];
 
@@ -432,6 +445,7 @@ lvert_t* lmd2_getvertices(const lmd2_model_t* mdl, int frame)
 
   return verts;
 }
+
 
 #endif /* LITE_MD2_USE_GFX */
 
