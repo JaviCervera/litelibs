@@ -508,7 +508,11 @@ int lgfx_multitexture_supported() {
 
 
 int lgfx_mipmapping_supported() {
+#ifdef _WIN32
   return glGenerateMipmap != NULL;
+#else
+  return 1;
+#endif
 }
 
 
@@ -542,6 +546,9 @@ ltex_t* ltex_alloc(int width, int height, int filter) {
   glBindTexture(GL_TEXTURE_2D, gltex);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minfilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magfilter);
+#ifndef _WIN32
+  if (filter == F_MIPMAP) glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+#endif
   glBindTexture(GL_TEXTURE_2D, 0);
 
   /* generate tex object */
@@ -564,7 +571,9 @@ void ltex_free(ltex_t* tex) {
 void ltex_setpixels(const ltex_t* tex, const unsigned char* pixels) {
   glBindTexture(GL_TEXTURE_2D, (GLuint)tex->glid);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex->width, tex->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+#ifdef _WIN32
   if (tex->filter == F_MIPMAP) glGenerateMipmap(GL_TEXTURE_2D);
+#endif
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
