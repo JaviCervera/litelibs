@@ -34,6 +34,7 @@ extern "C" {
 
 #define lm_deg2rad(A) (A * 0.0174532925f)
 #define lm_rad2deg(A) (A * 57.2957795f)
+#define lm_mix(A,B,T) (A + (B - A) * T)
 
 
 /* vec3 */
