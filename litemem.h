@@ -132,7 +132,7 @@ const char* lstr_alloc(const char* s) {
 
 
 char* lstr_allocempty(size_t n) {
-  return (char*)_mem_alloc((n + 1) * sizeof(char), NULL);
+  return (char*)_lmem_alloc((n + 1) * sizeof(char), NULL);
 }
 
 
