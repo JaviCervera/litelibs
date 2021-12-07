@@ -12,7 +12,7 @@ No warranty implied. Use as you wish and at your own risk
 
 #define lmem_alloc(T, F) (T*)_lmem_alloc(sizeof(T), F)
 #define lmem_allocauto(T, F) (T*)lmem_autorelease(_lmem_alloc(sizeof(T), F))
-#define lmem_assign(V, E) (lmem_retain(E), lmem_release(V), V = E)
+#define lmem_assign(V, E) (_lmem_assign((void**)&V, E), V)
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,13 +22,15 @@ extern "C" {
 void* _lmem_alloc(size_t size, void* func);
 size_t lmem_retain(void* block);
 size_t lmem_release(void* block);
+size_t lmem_count(void* block);
 void* lmem_autorelease(void* block);
 void lmem_doautorelease();
+void _lmem_assign(void** varptr, void* data);
 
 
-const char* lstr_alloc(const char* s);
+char* lstr_alloc(const char* s);
 char* lstr_allocempty(size_t n);
-const char* lstr_get(const char* s);
+char* lstr_get(const char* s);
 
 
 #ifdef __cplusplus
@@ -104,6 +106,15 @@ size_t lmem_release(void* block) {
 }
 
 
+size_t lmem_count(void* block) {
+  if (block) {
+    return ((lmem_rc_t*)block - 1)->count;
+  } else {
+    return 0;
+  }
+}
+
+
 void* lmem_autorelease(void* block) {
   _lmem_pool.blocks = (void**)realloc(
     _lmem_pool.blocks,
@@ -124,7 +135,14 @@ void lmem_doautorelease() {
 }
 
 
-const char* lstr_alloc(const char* s) {
+void _lmem_assign(void** varptr, void* data) {
+  lmem_retain(data);
+  lmem_release(*varptr);
+  memcpy(varptr, &data, sizeof(void*));
+}
+
+
+char* lstr_alloc(const char* s) {
   char* string = (char*)_lmem_alloc((strlen(s) + 1) * sizeof(char), NULL);
   strcpy(string, s);
   return string;
@@ -136,8 +154,8 @@ char* lstr_allocempty(size_t n) {
 }
 
 
-const char* lstr_get(const char* s) {
-  return (const char*)lmem_autorelease((char*)lstr_alloc(s));
+char* lstr_get(const char* s) {
+  return (char*)lmem_autorelease(lstr_alloc(s));
 }
 
 
