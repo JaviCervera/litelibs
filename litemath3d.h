@@ -86,7 +86,7 @@ lvec3_t lquat_euler(const lquat_t q);
 lmat4_t lmat4(const float* v);
 lmat4_t lmat4_identity();
 lmat4_t lmat4_mul(const lmat4_t a, const lmat4_t b);
-lvec3_t lmat4_mulvec3(const lmat4_t m, const lvec3_t v, float w);
+lvec3_t lmat4_mulvec3(const lmat4_t m, const lvec3_t v, float w, float* out_w);
 lmat4_t lmat4_translate(const lmat4_t m, const lvec3_t v);
 lmat4_t lmat4_rotate(const lmat4_t m, float angle, const lvec3_t axis);
 lmat4_t lmat4_scale(const lmat4_t m, const lvec3_t v);
@@ -240,8 +240,6 @@ lquat_t lquat(float w, float x, float y, float z) {
 
 lquat_t lquat_fromaxis(float angle, const lvec3_t axis) {
   lvec3_t v;
-  float s, w, x, y, z;
-
   angle *= 0.5f;
   v = lvec3_mulf(lvec3_norm(axis), sin(angle));
   return lquat(cos(angle), v.x, v.y, v.z);
@@ -287,7 +285,7 @@ lquat_t lquat_mul(const lquat_t a, const lquat_t b) {
 
 
 lvec3_t lquat_mulvec3(const lquat_t q, const lvec3_t v) {
-  lquat_t vq, rq;
+  lquat_t rq;
   rq = lquat_mul(lquat_mul(q, lquat(0, v.x, v.y, v.z)), lquat_conj(q));
   return lvec3(rq.x, rq.y, rq.z);
 }
@@ -334,7 +332,7 @@ lquat_t lquat_lerp(const lquat_t a, const lquat_t b, float t) {
 lquat_t lquat_slerp(const lquat_t a, const lquat_t b, float t) {
   lquat_t q;
   float dot;
-  
+
   dot = lquat_dot(a, b);
   if (dot < 0) {
     dot *= -1;
@@ -422,7 +420,7 @@ lmat4_t lmat4_mul(const lmat4_t a, const lmat4_t b) {
 }
 
 
-lvec3_t lmat4_mulvec3(const lmat4_t m, const lvec3_t v, float w) {
+lvec3_t lmat4_mulvec3(const lmat4_t m, const lvec3_t v, float w, float* out_w) {
   lmat4_t mat;
 
   mat = lmat4_identity();
@@ -431,6 +429,7 @@ lvec3_t lmat4_mulvec3(const lmat4_t m, const lvec3_t v, float w) {
   mat.m[14] = v.z;
   mat.m[15] = w;
   mat = lmat4_mul(m, mat);
+  if (out_w) *out_w = mat.m[15];
   return lvec3(mat.m[12], mat.m[13], mat.m[14]);
 }
 
@@ -475,7 +474,7 @@ lmat4_t lmat4_rotate(const lmat4_t m, float angle, const lvec3_t axis) {
 
 lmat4_t lmat4_scale(const lmat4_t m, const lvec3_t v) {
   lmat4_t mat;
-  
+
   mat = lmat4_identity();
   mat.m[0] = v.x;
   mat.m[5] = v.y;
@@ -551,7 +550,7 @@ lmat4_t lmat4_ortholh(float left, float right, float bottom, float top, float ne
 
 lmat4_t lmat4_frustumlh(float left, float right, float bottom, float top, float near_, float far_) {
   lmat4_t mat;
-  
+
   mat = lmat4_identity();
   mat.m[0]  = 2 * near_ / (right - left);
   mat.m[5]  = 2 * near_ / (top - bottom);
@@ -621,7 +620,7 @@ lmat4_t lmat4_orthorh(float left, float right, float bottom, float top, float ne
 
 lmat4_t lmat4_frustumrh(float left, float right, float bottom, float top, float near_, float far_) {
   lmat4_t mat;
-  
+
   mat = lmat4_identity();
   mat.m[0]  = 2 * near_ / (right - left);
   mat.m[5]  = 2 * near_ / (top - bottom);
